@@ -1,0 +1,19 @@
+{
+  "name": "wechat",
+  "version": "1.0.0",
+  "description": "node.js WeChat SDK",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanbornzhang/wechat.js.git"
+  },
+  "author": "SanBorn",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Sanbornzhang/wechat.js/issues"
+  },
+  "homepage": "https://github.com/Sanbornzhang/wechat.js#readme"
+}
