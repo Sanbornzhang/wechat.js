@@ -1,14 +1,18 @@
 const fs = require('fs')
-const crypto = require('crypto')
 const process = require('process')
-const util = require('util')
 const {URL} = require('url')
 const clone = require('clone')
-const xml2js = require('xml2js')
 const request = require('superagent')
 const utils = require('./util/util')
 
+/**
+ * WeChat payment constructor
+ */
 class WeChat {
+  /**
+   * constructor
+   * @param {Object} options
+   */
   constructor(options) {
     this.appid = options.appid
     this.mch_id = options.mch_id
@@ -17,9 +21,13 @@ class WeChat {
     this.env = options.env || process.env.NODE_ENV &&
                               process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
   }
+    /**
+   * set
+   * @param {*} options
+   * @return {WeChat}
+   */
   set(options) {
     // notify_url,trade_type,pfx
-    const limitKey = ['apiKey','env']
     const that = clone(this)
     Object.keys(options)
     .forEach((key)=>{
@@ -30,55 +38,79 @@ class WeChat {
         that[key] = options[key]
       }
     })
-    that.nonce_str = crypto.randomBytes(16).toString('hex')
-    Object.keys(that)
-    .forEach((key)=>{
-      if(limitKey.indexOf(key) !== -1){
-        delete that[key]
-      }
-    })
+    that.nonce_str = utils.nonceStr()
     return that
   }
 
+  /**
+   * baseUrl
+   * @return {String} baseUrl
+   */
   baseUrl() {
     const baseUrl = 'https://api.mch.weixin.qq.com/'
-    const baseSandBoxUrl = 'https://api.mch.weixin.qq.com//sandboxnew/'
+    const baseSandBoxUrl = 'https://api.mch.weixin.qq.com/sandboxnew/'
     return this.env === 'production' ? baseUrl : baseSandBoxUrl
   }
+  /**
+   * normalizingParameters
+   * @param {Object} obj parameters
+   * @return {Object} normalize parameters
+   */
+  normalizingParameters(obj) {
+    const selfParameters = ['apiKey', 'env']
+    selfParameters.forEach((key)=>{
+      delete obj[key]
+    })
+    return obj
+  }
+  /**
+   * unifiedOrder
+   * @param {*} data
+   * @return {Object} unifiedOrder data
+   */
   unifiedOrder(data) {
-    const buildingResult = (aData)=>{
+    /**
+     * buildingResult
+     * @param {*} data
+     * @return {Object} need sign!!!
+     */
+    const buildingResult = (data)=>{
       const vResult = {}
-      vResult.appid = aData.appid
-      vResult.partnerid = aData.mch_id
-      vResult.prepayid = aData.prepay_id
+      vResult.appid = data.appid
+      vResult.partnerid = data.mch_id
+      vResult.prepayid = data.prepay_id
       vResult.package = 'Sign=WXPay'
-      vResult.noncestr = aData.nonce_str
-      vResult.sign = aData.sign
-      vResult.timestamp = utils.formatDate(new Date())
+      vResult.noncestr = utils.nonceStr()
+      vResult.timestamp = utils.timeStamp()
       return vResult
     }
     let unifiedOrderOptions = this.set(data)
-    unifiedOrderOptions.sign = utils.sign(unifiedOrderOptions)
+    unifiedOrderOptions.sign = utils.sign(unifiedOrderOptions, this.apiKey)
+    this.normalizingParameters(unifiedOrderOptions)
     const unifiedOrderUrl = new URL( '/pay/unifiedorder', this.baseUrl())
-    const builder = new xml2js.Builder()
-    const xmlData = builder.buildObject(unifiedOrderOptions)
+    const xmlData = utils.json2xml(unifiedOrderOptions)
     return request.post(unifiedOrderUrl.href)
     .type('xml')
     .send((xmlData))
     .then(async (_)=>{
-      const xml2json = util.promisify(xml2js.parseString)
-      const vResultOptions = (await xml2json(_.text)).xml
-      const vResult = utils.objectArray2String(vResultOptions)
-      console.log(unifiedOrderOptions)
-      console.log(vResult)
-      return buildingResult(vResult)
+      const responseOptions = (await utils.xml2json(_.text)).xml
+      const response = utils.objectArray2String(responseOptions)
+      // TODO: error 封装
+      if (response.return_code === 'FAIL') {
+        const error = new Error()
+        error.message = response.return_msg
+        return Promise.reject(error)
+      }
+      else {
+        const result = buildingResult(response)
+        result.sign = utils.sign(result, this.apiKey)
+        return result
+      }
     })
     .catch((err)=>{
       return Promise.reject(err)
     })
   }
-  test (){
-    return Promise.resolve()
-  }
 }
 
+module.exports = WeChat

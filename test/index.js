@@ -1,0 +1,1 @@
+const WeChat =require('../index')
