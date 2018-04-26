@@ -1,1 +1,21 @@
 extends: google
+parserOptions: 
+   ecmaVersion: 2017
+rules: 
+  semi: 
+    - 'error'
+    - 'never'
+  max-len:
+    - 'error'
+    - code: 120
+      ignoreComments: true
+      ignoreTrailingComments: true
+      ignoreUrls: true
+      ignoreTemplateLiterals: true
+      ignorePattern: "^\\s*const\\s.+=\\s*require\\s*"
+  brace-style: 
+    - 'error'
+    - 'stroustrup'
+  new-cap: 
+    - 'error'
+    - capIsNew: false 
