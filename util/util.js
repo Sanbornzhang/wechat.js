@@ -13,8 +13,9 @@ const formatDate = (aDate)=>{
   const s = (vDate.getSeconds() < 10 ? '0' + vDate.getSeconds() : vDate.getSeconds())
   return `${Y}${M}${D}${h}${m}${s}`
 }
-const buildSignStr = (obj)=>{
-  const limitKey = ['sign', 'apiKey', 'env']
+const buildSignStr = (obj, signKey)=>{
+  // TODO: 统一
+  const limitKey = ['sign', 'signKey', 'env']
   const signStr = Object.keys(obj)
   .filter((key)=>{
     return obj[key]!== null && obj[key]!== undefined && obj[key]!== '' && limitKey.indexOf(key) === -1
@@ -23,7 +24,7 @@ const buildSignStr = (obj)=>{
   .map((key)=>{
     return `${key}=${obj[key]}`
   }).join('&')
-  return `${signStr}&key=${obj.apiKey}`
+  return `${signStr}&key=${signKey}`
 }
 const sign = (data, key, signType = 'md5', encoding = 'utf8', outputFormat = 'base64')=> {
   // 获取支持的算法 md5 以及 sha256
@@ -53,7 +54,18 @@ const objectArray2String = (aObj)=>{
   })
   return vResult
 }
-const timeStamp = ()=> parseInt(Date.now())
+const buildResponse = async (res)=>{
+  const responseOptions = (await xml2json(res.text)).xml
+  const result = objectArray2String(responseOptions)
+  if (result.return_code !== 'SUCCESS') {
+    const error = new Error()
+    error.message = result.return_msg || result.retmsg
+    error.status = 500
+    return Promise.reject(error)
+  }
+  return result
+}
+const timeStamp = ()=> parseInt(Date.now() / 1000)
 const nonceStr = ()=> crypto.randomBytes(16).toString('hex')
 const xml2json = util.promisify(xml2js.parseString)
 const json2xml = (data)=>{
@@ -67,6 +79,7 @@ module.exports = {
   nonceStr: nonceStr,
   timeStamp: timeStamp,
   buildSignStr: buildSignStr,
+  buildResponse: buildResponse,
   formatDate: formatDate,
   objectArray2String: objectArray2String,
 }

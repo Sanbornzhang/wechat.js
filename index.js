@@ -1,10 +1,10 @@
 const fs = require('fs')
 const process = require('process')
-const {URL} = require('url')
+// const {URL} = require('url')
 const clone = require('clone')
 const request = require('superagent')
 const utils = require('./util/util')
-
+const urljoin = require('url-join');
 /**
  * WeChat payment constructor
  */
@@ -16,7 +16,7 @@ class WeChat {
   constructor(options) {
     this.appid = options.appid
     this.mch_id = options.mch_id
-    this.apiKey = options.apiKey
+    this.signKey = options.signKey
     this.sign_type = options.signType || 'MD5' // 只能为 'HMAC-SHA256' || 'MD5'
     this.env = options.env || process.env.NODE_ENV &&
                               process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
@@ -39,6 +39,8 @@ class WeChat {
       }
     })
     that.nonce_str = utils.nonceStr()
+    that.time_start = utils.formatDate(that.time_start)
+    that.time_expire = utils.formatDate(that.time_expire)
     return that
   }
 
@@ -57,11 +59,35 @@ class WeChat {
    * @return {Object} normalize parameters
    */
   normalizingParameters(obj) {
-    const selfParameters = ['apiKey', 'env']
+    const selfParameters = ['signKey', 'env']
     selfParameters.forEach((key)=>{
       delete obj[key]
     })
     return obj
+  }
+
+  /**
+   * sandboxKey
+   * @return {string} sandbox environment sign key
+   */
+  sandboxKey() {
+    const sandboxSignKeyUrl = 'https://api.mch.weixin.qq.com/sandboxnew/pay/getsignkey'
+    const options = {
+      mch_id: this.mch_id,
+      nonce_str: utils.nonceStr(),
+    }
+    options.sign = utils.sign(options, this.signKey)
+    // TODO: request 封装
+    return request.post(sandboxSignKeyUrl)
+    .type('xml')
+    .send(utils.json2xml(options))
+    .then((_)=>{
+      return utils.buildResponse(_)
+    })
+    .then((response)=>{
+      this.signKey = response.sandbox_signkey
+      return response.sandbox_signkey
+    })
   }
   /**
    * unifiedOrder
@@ -85,27 +111,20 @@ class WeChat {
       return vResult
     }
     let unifiedOrderOptions = this.set(data)
-    unifiedOrderOptions.sign = utils.sign(unifiedOrderOptions, this.apiKey)
     this.normalizingParameters(unifiedOrderOptions)
-    const unifiedOrderUrl = new URL( '/pay/unifiedorder', this.baseUrl())
+    unifiedOrderOptions.sign = utils.sign(unifiedOrderOptions, this.signKey)
+    const unifiedOrderUrl = urljoin(this.baseUrl(), '/pay/unifiedorder')
     const xmlData = utils.json2xml(unifiedOrderOptions)
-    return request.post(unifiedOrderUrl.href)
+    return request.post(unifiedOrderUrl)
     .type('xml')
     .send((xmlData))
-    .then(async (_)=>{
-      const responseOptions = (await utils.xml2json(_.text)).xml
-      const response = utils.objectArray2String(responseOptions)
-      // TODO: error 封装
-      if (response.return_code === 'FAIL') {
-        const error = new Error()
-        error.message = response.return_msg
-        return Promise.reject(error)
-      }
-      else {
-        const result = buildingResult(response)
-        result.sign = utils.sign(result, this.apiKey)
-        return result
-      }
+    .then((_)=>{
+      return utils.buildResponse(_)
+    })
+    .then((response)=>{
+      const result = buildingResult(response)
+      result.sign = utils.sign(result, this.signKey)
+      return result
     })
     .catch((err)=>{
       return Promise.reject(err)
