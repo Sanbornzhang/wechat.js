@@ -4,7 +4,7 @@ const process = require('process')
 const clone = require('clone')
 const request = require('superagent')
 const utils = require('./util/util')
-const urljoin = require('url-join');
+const urljoin = require('url-join')
 /**
  * WeChat payment constructor
  */
@@ -128,6 +128,44 @@ class WeChat {
     })
     .catch((err)=>{
       return Promise.reject(err)
+    })
+  }
+  /**
+   * Paid Notify Verify
+   * @param {*} data
+   * @return {Promise} true|error
+   */
+  paidNotifyVerify(data) {
+    if (data.appid && data.appid === this.appid && data.mch_id && data.mch_id === this.mch_id) {
+      const dataSign = utils.sign(data, this.signKey)
+      const responseSign = data.sign
+      if ( dataSign !== responseSign) {
+        const error = new Error('sign is not equal')
+        return Promise.reject(error)
+      }
+      return Promise.resolve(true)
+    }
+  else {
+    const error = new Error('[appid|mch_id] not equal')
+    return Promise.reject(error)
+    }
+  }
+  /**
+   * refund
+   * @param {*} data
+   * @return {Object}
+   */
+  refund(data) {
+    const refundOptions = this.set(data)
+    this.normalizingParameters(refundOptions)
+    refundOptions.sign = utils.sign(refundOptions, this.signKey)
+    const refundURL = urljoin(this.baseUrl(), '/secapi/pay/refund')
+    return utils.request(refundURL, refundOptions, this.passpfx)
+    .then((responseData)=>{
+      return responseData
+    })
+    .catch((err)=>{
+      throw (err)
     })
   }
 }

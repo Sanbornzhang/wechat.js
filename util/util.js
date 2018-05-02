@@ -1,7 +1,33 @@
 const crypto = require('crypto')
 const util = require('util')
 const xml2js = require('xml2js')
+const superagent = require('superagent')
+const request = require('request')
 
+const requestData = (url, data, passpfx)=>{
+  const requestP = util.promisify(request)
+  return requestP({
+    url: url,
+    method: 'POST',
+    body: json2xml(data),
+    agentOptions: {
+      pfx: passpfx,
+      passphrase: data.mch_id,
+    },
+  })
+  // return superagent.post(url)
+  // .type('xml')
+  // .send(json2xml(data))
+  // .set('Content-Type', 'application/json')
+  // .pfx({
+  //   pfx: passpfx,
+  //   passphrase: data.mch_id,
+  // })
+  // .then((_)=>{
+  //   // return buildResponse(_)
+  //   return _
+  // })
+}
 
 const formatDate = (aDate)=>{
   const vDate = new Date(aDate)
@@ -14,7 +40,6 @@ const formatDate = (aDate)=>{
   return `${Y}${M}${D}${h}${m}${s}`
 }
 const buildSignStr = (obj, signKey)=>{
-  // TODO: 统一
   const limitKey = ['sign', 'signKey', 'env']
   const signStr = Object.keys(obj)
   .filter((key)=>{
@@ -82,4 +107,5 @@ module.exports = {
   buildResponse: buildResponse,
   formatDate: formatDate,
   objectArray2String: objectArray2String,
+  requestData: requestData,
 }
