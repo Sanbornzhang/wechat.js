@@ -17,6 +17,7 @@ class WeChat {
     this.appid = options.appid
     this.mch_id = options.mch_id
     this.signKey = options.signKey
+    this.passpfx = options.passpfx
     this.sign_type = options.signType || 'MD5' // 只能为 'HMAC-SHA256' || 'MD5'
     this.env = options.env || process.env.NODE_ENV &&
                               process.env.NODE_ENV === 'production' ? 'production' : 'sandbox'
@@ -39,8 +40,8 @@ class WeChat {
       }
     })
     that.nonce_str = utils.nonceStr()
-    that.time_start = utils.formatDate(that.time_start)
-    that.time_expire = utils.formatDate(that.time_expire)
+    that.time_start = that.time_start ? utils.formatDate(that.time_start): null
+    that.time_expire = that.time_expire ? utils.formatDate(that.time_expire): null
     return that
   }
 
@@ -59,7 +60,7 @@ class WeChat {
    * @return {Object} normalize parameters
    */
   normalizingParameters(obj) {
-    const selfParameters = ['signKey', 'env']
+    const selfParameters = ['signKey', 'env', 'passpfx']
     selfParameters.forEach((key)=>{
       delete obj[key]
     })
@@ -77,7 +78,6 @@ class WeChat {
       nonce_str: utils.nonceStr(),
     }
     options.sign = utils.sign(options, this.signKey)
-    // TODO: request 封装
     return request.post(sandboxSignKeyUrl)
     .type('xml')
     .send(utils.json2xml(options))
